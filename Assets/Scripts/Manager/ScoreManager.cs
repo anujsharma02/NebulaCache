@@ -1,18 +1,12 @@
 using TMPro;
 using UnityEngine;
 
-public class ScoreManager : MonoBehaviour
+public class ScoreManager : Singleton<ScoreManager>
 {
-  public static ScoreManager Instance;
 
   private int score;
   private int turns;
   private int matches;
-
-  void Awake()
-  {
-    Instance = this;
-  }
 
   void start()
   {

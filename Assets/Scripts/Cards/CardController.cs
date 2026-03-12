@@ -1,3 +1,4 @@
+// Controls communication between model and view
 public class CardController
 {
     public CardModel model;
@@ -8,11 +9,14 @@ public class CardController
         model = m;
         view = v;
     }
-     public void Select()
+
+    // Called when card is clicked
+    public void Select()
     {
         GameManager.Instance.SelectCard(this);
     }
 
+    // Called when card is clicked
     public void Flip()
     {
         view.Flip();

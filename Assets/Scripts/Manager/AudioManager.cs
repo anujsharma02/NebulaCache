@@ -1,21 +1,14 @@
 using UnityEngine;
 
-public class AudioManager : MonoBehaviour
+public class AudioManager : Singleton<AudioManager>
 {
-  public static AudioManager Instance;
-
   [SerializeField] private AudioSource source;
 
+  [SerializeField] private AudioClip Bg;
   [SerializeField] private AudioClip flip;
   [SerializeField] private AudioClip match;
   [SerializeField] private AudioClip mismatch;
   [SerializeField] private AudioClip gameOver;
-
-  void Awake()
-  {
-    Instance = this;
-  }
-
   public void PlayFlip()
   {
     source.PlayOneShot(flip);
