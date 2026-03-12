@@ -6,27 +6,19 @@ public class BoardManager : MonoBehaviour
 {
   [SerializeField] private Transform boardParent;
   [SerializeField] private GameObject cardPrefab;
-
   [SerializeField] private int rows;
   [SerializeField] private int cols;
-
   [SerializeField] private Sprite[] cardSprites;
 
   private List<CardController> cards = new List<CardController>();
   public List<CardController> Cards => cards;
-
   public int Rows => rows;
   public int Cols => cols;
 
-  // ---------- NEW GAME ----------
+  // Generate new shuffled board
   public void GenerateBoard()
   {
     int total = rows * cols;
-    if (total % 2 != 0)
-    {
-      Debug.LogError("Rows × Columns must be an EVEN number for card pairs.");
-      return;
-    }
 
     ClearBoard();
 
@@ -35,7 +27,6 @@ public class BoardManager : MonoBehaviour
     for (int i = 0; i < total / 2; i++)
     {
       int spriteIndex = i % cardSprites.Length;
-
       ids.Add(spriteIndex);
       ids.Add(spriteIndex);
     }
@@ -44,15 +35,14 @@ public class BoardManager : MonoBehaviour
     CreateCards(ids.ToArray());
   }
 
-  // ---------- LOAD SAVED BOARD ----------
+  // Generate new shuffled board
   public void GenerateBoard(int[] savedIDs)
   {
     ClearBoard();
-
     CreateCards(savedIDs);
   }
 
-  // ---------- COMMON CARD CREATION ----------
+  // Create cards
   void CreateCards(int[] ids)
   {
     GridLayoutGroup grid = boardParent.GetComponent<GridLayoutGroup>();
@@ -62,16 +52,12 @@ public class BoardManager : MonoBehaviour
 
     ResizeGrid(grid);
 
-    for (int i = 0; i < ids.Length; i++)
+    foreach (int id in ids)
     {
-      int id = ids[i];
-
       GameObject obj = Instantiate(cardPrefab, boardParent);
 
       CardView view = obj.GetComponent<CardView>();
-
       CardModel model = new CardModel(id);
-
       CardController controller = new CardController(model, view);
 
       view.Init(controller, cardSprites[id]);
@@ -80,17 +66,16 @@ public class BoardManager : MonoBehaviour
     }
   }
 
-  // ---------- CLEAR BOARD ----------
+  // Remove existing cards
   void ClearBoard()
   {
     foreach (Transform child in boardParent)
-    {
       Destroy(child.gameObject);
-    }
 
     cards.Clear();
   }
 
+  // Resize grid dynamically
   void ResizeGrid(GridLayoutGroup grid)
   {
     RectTransform rect = boardParent.GetComponent<RectTransform>();
@@ -112,6 +97,7 @@ public class BoardManager : MonoBehaviour
 
   }
 
+  // Fisher–Yates shuffle
   void Shuffle(List<int> list)
   {
     for (int i = 0; i < list.Count; i++)
@@ -122,5 +108,10 @@ public class BoardManager : MonoBehaviour
       list[i] = list[r];
       list[r] = t;
     }
+  }
+  public void SetBoardSize(int r, int c)
+  {
+    rows = r;
+    cols = c;
   }
 }

@@ -1,16 +1,8 @@
 using UnityEngine;
 
-public class SaveManager : MonoBehaviour
+public class SaveManager : Singleton<SaveManager>
 {
-    public static SaveManager Instance;
-
     private const string SAVE_KEY = "CARD_MATCH_SAVE";
-
-    private void Awake()
-    {
-        Instance = this;
-    }
-
     public void SaveGame(GameSaveData data)
     {
         string json = JsonUtility.ToJson(data);

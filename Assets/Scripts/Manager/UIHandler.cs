@@ -2,10 +2,8 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-public class UIHandler : MonoBehaviour
+public class UIHandler : Singleton<UIHandler>
 {
-    public static UIHandler Instance;
-
     [Header("Top UI")]
 
     [SerializeField] private TextMeshProUGUI scoreText;
@@ -33,15 +31,43 @@ public class UIHandler : MonoBehaviour
 
     [SerializeField] private Button continueButton;
     [SerializeField] private Button newGameButton;
+    [SerializeField] private Button playButton;
     [SerializeField] private Button quitButton;
-
+    [SerializeField] private TMP_InputField rowInput;
+    [SerializeField] private TMP_InputField columnInput;
     public GameObject StartPanel => startPanel;
     public Button ContinueButton => continueButton;
     public Button NewGameButton => newGameButton;
+    public Button PlayButton => playButton;
     public Button QuitButton => quitButton;
+    public TMP_InputField RowInput => rowInput;
+    public TMP_InputField ColumnInput => columnInput;
+    public TextMeshProUGUI ErrorMsg;
 
-    private void Awake()
+    [SerializeField] private GameObject Header;
+    [SerializeField] private GameObject GameBoard;
+    [SerializeField] private GameObject Footer;
+
+    public void StartNewGame()
     {
-        Instance = this;
+        NewGameButton.gameObject.SetActive(false);
+        ContinueButton.gameObject.SetActive(false);
+        PlayButton.gameObject.SetActive(true);
+        RowInput.gameObject.SetActive(true);
+        ColumnInput.gameObject.SetActive(true);
+    }
+
+    public void EnableDisableObject(bool _value)
+    {
+        Header.SetActive(_value);
+        GameBoard.SetActive(_value);
+        Footer.SetActive(_value);
+    }
+
+    public void DisableGameOver(bool _value)
+    {
+        GameOverPanel.SetActive(_value);
+        StartPanel.SetActive(!_value);
+        EnableDisableObject(_value);
     }
 }

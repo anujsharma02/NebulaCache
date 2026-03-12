@@ -3,45 +3,74 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-public class GameManager : MonoBehaviour
+public class GameManager : Singleton<GameManager>
 {
-  public static GameManager Instance;
-
   [SerializeField] private BoardManager board;
-
   private Queue<CardController> queue = new Queue<CardController>();
   private List<CardController> selected = new List<CardController>();
 
   private bool processing = false;
-
   private int totalPairs;
-
-  private void Awake()
-  {
-    Instance = this;
-  }
 
   private void Start()
   {
+    UIHandler.Instance.StartPanel.SetActive(true);
     GameSaveData data = SaveManager.Instance.LoadGame();
-
-    if (data != null)
-    {
-      LoadSavedGame(data);
-    }
-    else
-    {
-      board.GenerateBoard();
-      StartCoroutine(PreviewCards());
-    }
-
-    totalPairs = (board.Rows * board.Cols) / 2;
+    UIHandler.Instance.ContinueButton.gameObject.SetActive(data != null);
   }
 
+  // Continue saved game
+  public void ContinueGame()
+  {
+    GameSaveData data = SaveManager.Instance.LoadGame();
+    UIHandler.Instance.EnableDisableObject(true);
+    if (data == null) return;
+    LoadSavedGame(data);
+    totalPairs = (board.Rows * board.Cols) / 2;
+    StartCoroutine(PreviewLoadedGame());
+    UIHandler.Instance.StartPanel.SetActive(false);
+  }
+
+  // Start new game with custom rows/cols
+  public void StartNewGame()
+  {
+    UIHandler.Instance.ErrorMsg.gameObject.SetActive(false);
+
+    string rowText = UIHandler.Instance.RowInput.text;
+    string colText = UIHandler.Instance.ColumnInput.text;
+
+    // Check empty input
+    if (string.IsNullOrWhiteSpace(rowText) || string.IsNullOrWhiteSpace(colText))
+    {
+      UIHandler.Instance.ErrorMsg.text = "Row and Column cannot be empty";
+      UIHandler.Instance.ErrorMsg.gameObject.SetActive(true);
+      return;
+    }
+
+    UIHandler.Instance.EnableDisableObject(true);
+    int rows = int.Parse(rowText);
+    int cols = int.Parse(colText);
+    // Validate board size
+    if (((rows * cols) % 2 != 0) || (rows * cols) < 4)
+    {
+      UIHandler.Instance.ErrorMsg.text = "Rows × Columns must be EVEN and ≥ 4";
+      UIHandler.Instance.ErrorMsg.gameObject.SetActive(true);
+      return;
+    }
+
+    board.SetBoardSize(rows, cols);
+    SaveManager.Instance.ClearSave();
+    ScoreManager.Instance.SetValues(0, 0, 0);
+    board.GenerateBoard();
+    totalPairs = board.Cards.Count / 2;
+    UIHandler.Instance.StartPanel.SetActive(false);
+    StartCoroutine(PreviewCards());
+  }
+
+  // Player selects card
   public void SelectCard(CardController card)
   {
-    if (selected.Contains(card))
-      return;
+    if (selected.Contains(card)) return;
 
     queue.Enqueue(card);
 
@@ -49,7 +78,7 @@ public class GameManager : MonoBehaviour
       StartCoroutine(ProcessQueue());
   }
 
-  private IEnumerator ProcessQueue()
+  IEnumerator ProcessQueue()
   {
     processing = true;
 
@@ -61,7 +90,7 @@ public class GameManager : MonoBehaviour
       selected.Add(card);
 
       if (selected.Count == 2)
-        yield return StartCoroutine(CheckMatch());
+        yield return CheckMatch();
 
       yield return new WaitForSeconds(0.1f);
     }
@@ -86,13 +115,17 @@ public class GameManager : MonoBehaviour
 
       ScoreManager.Instance.AddMatch();
       ScoreManager.Instance.AddScore(10);
-
-      if (ScoreManager.Instance.GetMatches() >= totalPairs)
+      AudioManager.Instance.PlayMatch();
+      if (ScoreManager.Instance.GetMatches() == totalPairs)
+      {
         yield return new WaitForSeconds(1f);
-      GameCompleted();
+        GameCompleted();
+      }
+
     }
     else
     {
+      AudioManager.Instance.PlayMismatch();
       yield return new WaitForSeconds(1f);
 
       a.Flip();
@@ -105,11 +138,12 @@ public class GameManager : MonoBehaviour
   private void GameCompleted()
   {
     UIHandler.Instance.GameOverPanel.SetActive(true);
-
-    UIHandler.Instance.FinalScoreText.text =
-        "Final Score: " + ScoreManager.Instance.GetScore();
+    AudioManager.Instance.PlayGameOver();
+    UIHandler.Instance.FinalScoreText.text = "Total Turns: " + ScoreManager.Instance.GetTurns() + "\nFinal Score: " + ScoreManager.Instance.GetScore();
+    SaveManager.Instance.ClearSave();
   }
 
+  // Preview for new game
   private IEnumerator PreviewCards()
   {
     yield return new WaitForSeconds(2f);
@@ -117,6 +151,7 @@ public class GameManager : MonoBehaviour
     foreach (var card in board.Cards)
     {
       card.Flip();
+      AudioManager.Instance.PlayFlip();
       yield return new WaitForSeconds(0.03f);
     }
 
@@ -126,16 +161,66 @@ public class GameManager : MonoBehaviour
       card.view.EnableInteraction();
     }
   }
+
+  // Preview when continuing game
+  IEnumerator PreviewLoadedGame()
+  {
+    yield return new WaitForSeconds(0.05f);
+
+    // Show preview instantly
+    foreach (var card in board.Cards)
+    {
+      if (!card.model.matched)
+      {
+        card.view.ShowFrontInstant();
+      }
+    }
+
+    yield return new WaitForSeconds(1.5f);
+
+    // Flip back with animation
+    foreach (var card in board.Cards)
+    {
+      if (!card.model.matched)
+      {
+        card.view.EnableAnimator();
+        card.Flip();
+        AudioManager.Instance.PlayFlip();
+      }
+    }
+
+    // Enable gameplay
+    foreach (var card in board.Cards)
+    {
+      if (!card.model.matched)
+      {
+        card.view.EnableInteraction();
+      }
+    }
+  }
+
+  // Save game state
   public void SaveProgress()
   {
-    GameSaveData data = new GameSaveData();
+    if (board.Cards.Count == 0)
+      return;
 
-    data.rows = board.Rows;
-    data.cols = board.Cols;
+    // Do not save if player never played a turn
+    if (ScoreManager.Instance.GetTurns() == 0)
+      return;
 
-    data.score = ScoreManager.Instance.GetScore();
-    data.turns = ScoreManager.Instance.GetTurns();
-    data.matches = ScoreManager.Instance.GetMatches();
+    // Don't save if game completed
+    if (ScoreManager.Instance.GetMatches() == totalPairs)
+      return;
+
+    GameSaveData data = new GameSaveData
+    {
+      rows = board.Rows,
+      cols = board.Cols,
+      score = ScoreManager.Instance.GetScore(),
+      turns = ScoreManager.Instance.GetTurns(),
+      matches = ScoreManager.Instance.GetMatches()
+    };
 
     int count = board.Cards.Count;
 
@@ -151,18 +236,17 @@ public class GameManager : MonoBehaviour
     SaveManager.Instance.SaveGame(data);
   }
 
-  private void OnApplicationQuit()
-  {
-    SaveProgress();
-  }
+  void OnApplicationQuit() => SaveProgress();
 
   private void OnApplicationPause(bool pause)
   {
-    if (pause)
-      SaveProgress();
+    if (pause) SaveProgress();
   }
   private void LoadSavedGame(GameSaveData data)
   {
+    // Restore board size first
+    board.SetBoardSize(data.rows, data.cols);
+    // Generate board with saved card order
     board.GenerateBoard(data.cardIDs);
 
     int count = board.Cards.Count;
@@ -191,24 +275,9 @@ public class GameManager : MonoBehaviour
     );
   }
 
-  // Restart the current game (same scene)
-  public void RestartGame()
-  {
-    SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
-  }
-
-
-  // Start a completely new game
-  public void NewGame()
-  {
-    SaveManager.Instance.ClearSave();
-    SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
-  }
-
   // Quit the application
   public void QuitGame()
   {
-    Debug.Log("Quit Game");
     Application.Quit();
   }
 }
