@@ -8,4 +8,13 @@ public class CardController
         model = m;
         view = v;
     }
+     public void Select()
+    {
+        GameManager.Instance.SelectCard(this);
+    }
+
+    public void Flip()
+    {
+        view.Flip();
+    }
 }
